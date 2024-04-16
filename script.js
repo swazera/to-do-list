@@ -1,95 +1,104 @@
-var addNewTask = document.getElementById('addtask');
-var inputTask = document.getElementById("newtask");
-var listTasks = document.getElementById("listOfTasks");
-var targetElem, elementToEdit, checkElem, delElem, editInput, elemId, oldValue;
+'use strict';
 
-var addTasks = function(){
-	if(inputTask.value !== ""){
-		listTasks.style.display = "block";
-		var newTask = document.createElement("div");
-		newTask.className = "taskWrapper";
-		newTask.innerHTML = '<input id="checkedTask'+(listTasks.childNodes.length+1) +'" class="taskContent" type="checkbox" />'+ 
-							'<span id="taskContent'+(listTasks.childNodes.length+1) +'" class="taskContent">' + inputTask.value +
-							'</span>'+
-							'<input id="deletetask' + (listTasks.childNodes.length+1) +'" class="deletetask" type="button" value="x" />';
-		listTasks.appendChild(newTask);
-		inputTask.value = '';
-	}
+const KEY_TODO = 'WTODO';
+let items = JSON.parse(localStorage.getItem(KEY_TODO)) || [];
+listAll();
 
-};
+function listAll() {
+    todoEl.innerHTML = '';
+    items.forEach((value) => addItem(value));
+}
 
-inputTask.addEventListener('keyup', function(e){
-	if(e.keyCode == 13){
-		addTasks();
-	}
-}, false);
+function edit(e) {
+    let span = e.previousSibling;
+    let input = document.createElement('input');
+    input.value = span.innerText;
+    span.replaceWith(input);
 
-listTasks.addEventListener('click', function(e) {
-	if(e.target.id.indexOf('checkedTask') != -1) {
-		var contentToCross = e.target.parentNode.getElementsByTagName("span");
-		if(e.target.checked) {
-			contentToCross[0].style.textDecoration = "line-through";
-		} else {
-			contentToCross[0].style.textDecoration = "none";
+    e.replaceWith(makeButton('💾', 'save(this)'));
+}
 
-		}
-	} else if(e.target.id.indexOf('deletetask') != -1) {
-		targetElem = document.getElementById(e.target.id);
-		var elementToRemove = targetElem.parentNode;
-		elementToRemove.parentNode.removeChild(elementToRemove);
-		if(listOfTasks.children.length == 0){
-				listTasks.style.display = "none";
-			}
-	} else if(e.target.id.indexOf('taskContent') != -1) {
-		var listInputs = listTasks.getElementsByTagName('input');
+function save(e) {
+    let input = e.previousSibling;
 
-		for (var i = 0; i < listInputs.length; i++) {
-			if(listInputs[i].type == "text"){
-				listInputs[i] = origElem;
-				return listInputs[i];
-			} else if(document.getElementById('newValue') < 1  ){
-				targetElem = document.getElementById(e.target.id);
-				elemId = e.target.id;
-				origElem = targetElem.parentNode;
-				elementToEdit = targetElem.parentNode;
-				oldValue = e.target.textContent;
-				checkElem = elementToEdit.firstChild;
-				delElem = elementToEdit.lastChild;
-				editInput = '<input id ="newValue" class="newtask edittask" type="text" value="' + elementToEdit.textContent +'" />' +
-								'<input id="confirmEdit" class="confirmtask" type="button" value="+" />' +
-								'<input id ="cancelEdit" class="deletetask" type="button" value="-" />' ;
+    updateStorage(e, (index) => {
+        items[index] = { id: randomId(), name: input.value };
+    });
 
-		
-				elementToEdit.innerHTML = editInput;
+    let span = document.createElement('span');
+    span.innerText = input.value;
+    input.replaceWith(span);
 
-				elementToEdit.addEventListener('keyup', function(ev){
-					if(ev.keyCode == 13){
-						confirmEdit(ev);
-					}
-				}, false);
-				return elementToEdit;
-			}
-		};
-			
-		
-	} else if(e.target.id == "confirmEdit") {
-		confirmEdit (e);
-	} else if(e.target.id == "cancelEdit") {
-		cancelEdit(e);
-	}
+    e.replaceWith(makeButton('✏️', 'edit(this)'));
+}
 
-	function confirmEdit (ev) {
-		var newValue = ev.target.parentNode.querySelector("#newValue").value
-		elementToEdit.innerHTML = '<span id="'+ elemId + '" class="taskContent">'+ newValue +'</span>'
-		elementToEdit.insertBefore(checkElem, elementToEdit.firstChild);
-		elementToEdit.appendChild(delElem);
-		elementToEdit = '';
-	}
-			
-	function cancelEdit (ev) {	
-		elementToEdit.innerHTML = '<span id="'+ elemId + '" class="taskContent">'+ oldValue +'</span>'
-		elementToEdit.insertBefore(checkElem, elementToEdit.firstChild);
-		elementToEdit.appendChild(delElem);			
-	}
+function makeButton(text, onclick) {
+    let button = document.createElement('button');
+    button.textContent = text;
+    button.setAttribute('onclick', onclick);
 
-},false	)
+    return button;
+}
+
+function remove(e) {
+    if (window.confirm('Excluir?')) {
+        updateStorage(e, (index) => items.splice(index, 1));
+    }
+}
+
+function updateStorage(e, action) {
+    let id = e.parentNode.dataset.id;
+    items.some((value, index) => {
+        if (value.id == id) {
+            action(index);
+            create(KEY_TODO, JSON.stringify(items));
+            return true;
+        }
+    });
+    listAll();
+}
+
+function checked({ target }) {
+    if (target.tagName === 'SPAN') {
+        target.style.textDecoration = !target.style.textDecoration
+            ? 'line-through'
+            : '';
+    }
+}
+
+const randomId = () => Math.floor(Math.random() * 9999) + 10;
+
+function add() {
+    let input_value = taskEl.value;
+    taskEl.value = '';
+    let item = { id: randomId(), name: input_value };
+    items.push(item);
+    create(KEY_TODO, JSON.stringify(items));
+    addItem(item);
+}
+
+function addItem({ id, name }) {
+    let li = document.createElement('LI');
+    let span = document.createElement('SPAN');
+
+    span.textContent = name;
+
+    li.setAttribute('data-id', id);
+    li.appendChild(span);
+    li.appendChild(makeButton('✏️', 'edit(this)'));
+    li.appendChild(makeButton('🗑️', 'remove(this)'));
+
+    todoEl.appendChild(li);
+}
+
+function removeAll() {
+    localStorage.clear();
+    items = [];
+    listAll();
+}
+
+const create = (key, value) => localStorage.setItem(key, value);
+
+todoEl.addEventListener('click', checked);
+addEl.addEventListener('click', add);
+clearEl.addEventListener('click', removeAll);
